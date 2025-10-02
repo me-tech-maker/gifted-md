@@ -261,6 +261,8 @@ async function formatAudio(buffer) {
         try {
           await waitForFileToStabilize(outputPath);
           const fixedBuffer = fs.readFileSync(outputPath);
+          fs.unlinkSync(tempInput);
+          fs.unlinkSync(tempOutput);
           resolve(fixedBuffer);
         } catch (err) {
           reject(err);
@@ -273,34 +275,50 @@ async function formatAudio(buffer) {
 
 
 async function formatVideo(buffer) {
+  const inputPath = `temp_in${Date.now()}.mp4`;
+  const outputPath = `temp_out${Date.now()}.mp4`;
+  
+  fs.writeFileSync(inputPath, buffer);
+
   return new Promise((resolve, reject) => {
-    const inputPath = `temp_in${Date.now()}.mp4`;
-    const outputPath = `temp_out${Date.now()}.mp4`;
-    fs.writeFileSync(tempInput, buffer);
-    
     ffmpeg()
-      .input(tempInput)
+      .input(inputPath)
       .videoCodec('libx264')
       .audioCodec('aac')
       .outputOptions([
-        '-preset fast',
-        '-movflags faststart',
-        '-pix_fmt yuv420p'
+        '-preset ultrafast', 
+        '-movflags +faststart',
+        '-pix_fmt yuv420p',
+        '-crf 23', 
+        '-maxrate 2M', 
+        '-bufsize 4M', 
+        '-r 30', 
+        '-g 60', 
+        '-keyint_min 60',
+        '-sc_threshold 0'
       ])
-      .size('640x?')
+      .size('1280x720') 
+      .audioBitrate('128k')
+      .audioChannels(2)
+      .audioFrequency(44100)
       .toFormat('mp4')
       .on('error', (err) => {
-        fs.unlinkSync(tempInput);
-        if (fs.existsSync(tempOutput)) fs.unlinkSync(tempOutput);
+        fs.unlinkSync(inputPath);
+        if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath);
         reject(err);
       })
-      .on('end', () => {
-        const outputBuffer = fs.readFileSync(tempOutput);
-        fs.unlinkSync(tempInput);
-        fs.unlinkSync(tempOutput);
-        resolve(outputBuffer);
+      .on('end', async () => {
+        try {
+          await waitForFileToStabilize(outputPath);
+          const outputBuffer = fs.readFileSync(outputPath);
+          fs.unlinkSync(inputPath);
+          fs.unlinkSync(outputPath);
+          resolve(outputBuffer);
+        } catch (err) {
+          reject(err);
+        }
       })
-      .save(tempOutput);
+      .save(outputPath);
   });
 }
 
