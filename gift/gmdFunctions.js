@@ -214,44 +214,67 @@ async function toPtt(buffer) {
   });
 }
 
-async function formatAudio(buffer) {
+async function waitForFileToStabilize(filePath, timeout = 500000) {
+  let lastSize = -1;
+  let stableCount = 0;
+  const interval = 200;
+
   return new Promise((resolve, reject) => {
-    const tempInput = `temp_${Date.now()}.input`;
-    const tempOutput = `temp_${Date.now()}.mp3`;
-    
-    fs.writeFileSync(tempInput, buffer);
-    
-    ffmpeg()
-      .input(tempInput)
-      .noVideo() 
-      .audioCodec('libmp3lame')
-      .audioBitrate(128)
-      .outputOptions([
-        '-preset ultrafast', 
-        '-compression_level 0', 
-        '-joint_stereo 1', 
-        '-reservoir 0', 
-        '-fflags +genpts', 
-      ])
-      .toFormat('mp3')
-      .on('error', (err) => {
-        fs.unlinkSync(tempInput);
-        if (fs.existsSync(tempOutput)) fs.unlinkSync(tempOutput);
-        reject(err);
-      })
-      .on('end', () => {
-        const outputBuffer = fs.readFileSync(tempOutput);
-        fs.unlinkSync(tempInput);
-        fs.unlinkSync(tempOutput);
-        resolve(outputBuffer);
-      })
-      .save(tempOutput);
+    const start = Date.now();
+    const timer = setInterval(async () => {
+      try {
+        const { size } = await fs.promises.stat(filePath);
+        if (size === lastSize) {
+          stableCount++;
+          if (stableCount >= 3) {
+            clearInterval(timer);
+            return resolve();
+          }
+        } else {
+          stableCount = 0;
+          lastSize = size;
+        }
+
+        if (Date.now() - start > timeout) {
+          clearInterval(timer);
+          return reject(new Error("File stabilization timed out."));
+        }
+      } catch (err) {
+        
+      }
+    }, interval);
   });
 }
 
+async function formatAudio(buffer) {
+  const inputPath = `temp_in${Date.now()}.mp3`;
+  const outputPath = `temp_out${Date.now()}.mp3`;
+
+  fs.writeFileSync(inputPath, buffer);
+
+  return new Promise((resolve, reject) => {
+    ffmpeg(inputPath)
+      .audioCodec('libmp3lame')
+      .audioBitrate('128k')
+      .audioFrequency(44100)
+      .on('end', async () => {
+        try {
+          await waitForFileToStabilize(outputPath);
+          const fixedBuffer = fs.readFileSync(outputPath);
+          resolve(fixedBuffer);
+        } catch (err) {
+          reject(err);
+        }
+      })
+      .on('error', reject)
+      .save(outputPath);
+  });
+}
+
+
 async function formatVideo(buffer) {
   return new Promise((resolve, reject) => {
-    const tempInput = `temp_${Date.now()}.input`;
+    const tempInput = `temp_${Date.now()}.mp4`;
     const tempOutput = `temp_${Date.now()}.mp4`;
     fs.writeFileSync(tempInput, buffer);
     
@@ -552,4 +575,3 @@ class gmdStore {
 }
 
 module.exports = { dBinary, eBinary, dBase, eBase, runtime, sleep, gmdFancy, stickerToImage, toAudio, toVideo, toPtt, formatVideo, formatAudio, monospace, formatBytes, sleep, gmdBuffer, gmdJson, latestWaVersion, gmdRandom, isUrl,gmdStore, isNumber, loadSession, verifyJidState };
-
