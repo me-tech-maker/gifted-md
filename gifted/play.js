@@ -147,6 +147,10 @@ gmd({
 
 
           const response = await gmdBuffer(audioApi);
+          const sizeMB = response.length / (1024 * 1024);
+      if (sizeMB > 16) {
+        await reply("File is large, download might take a while...");
+      }
 
       const convertedBuffer = await formatAudio(response);
             const infoMess = {
@@ -156,7 +160,7 @@ gmd({
 │⿻ *Title:* ${firstVideo.name}
 │⿻ *Duration:* ${firstVideo.duration}
 ╰────────────────◆
-⏱ *Session expires in 2 minutes*
+⏱ *Session expires in 3 minutes*
 ╭───────────────◆
 │Reply With:
 │1️⃣ To Download Audio 🎶
@@ -233,7 +237,7 @@ gmd({
         Gifted.ev.off("messages.upsert", handleResponse);
       };
 
-      setTimeout(timeoutHandler, 120000);
+      setTimeout(timeoutHandler, 180000);
 
       Gifted.ev.on("messages.upsert", handleResponse);
 
@@ -300,7 +304,7 @@ gmd({
 │⿻ *Title:* ${firstVideo.name}
 │⿻ *Duration:* ${firstVideo.duration}
 ╰────────────────◆
-⏱ *Session expires in 2 minutes*
+⏱ *Session expires in 3 minutes*
 ╭───────────────◆
 │Reply With:
 │1️⃣ To Download Video 🎥
@@ -369,7 +373,7 @@ gmd({
         Gifted.ev.off("messages.upsert", handleResponse);
       };
 
-      setTimeout(timeoutHandler, 120000);
+      setTimeout(timeoutHandler, 180000);
 
       Gifted.ev.on("messages.upsert", handleResponse);
 
