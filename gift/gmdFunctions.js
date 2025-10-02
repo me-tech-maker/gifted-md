@@ -274,8 +274,8 @@ async function formatAudio(buffer) {
 
 async function formatVideo(buffer) {
   return new Promise((resolve, reject) => {
-    const tempInput = `temp_${Date.now()}.mp4`;
-    const tempOutput = `temp_${Date.now()}.mp4`;
+    const inputPath = `temp_in${Date.now()}.mp4`;
+    const outputPath = `temp_out${Date.now()}.mp4`;
     fs.writeFileSync(tempInput, buffer);
     
     ffmpeg()
