@@ -148,7 +148,7 @@ gmd({
       
      const sizeMB = response.length / (1024 * 1024);
       if (sizeMB > 16) {
-        await reply("File is large, pricessing might take a while...");
+        await reply("File is large, processing might take a while...");
       }
 
       const convertedBuffer = await formatAudio(response);
@@ -286,7 +286,7 @@ gmd({
 
       const sizeMB = response.length / (1024 * 1024);
       if (sizeMB > 16) {
-        await reply("File is large, pricessing might take a while...");
+        await reply("File is large, processing might take a while...");
       }
 
       const convertedBuffer = await formatVideo(response);
