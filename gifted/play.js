@@ -1,7 +1,6 @@
 const { gmd } = require("../gift");
 
 
-
 gmd({
     pattern: "sendimage",
     aliases: ["sendimg", "dlimg", "dlimage"],
@@ -145,11 +144,11 @@ gmd({
 
       const audioApi = `http://102.212.246.26:5434/api/download/ytmp3?url=${encodeURIComponent(videoUrl)}`;
 
-
-          const response = await gmdBuffer(audioApi);
-          const sizeMB = response.length / (1024 * 1024);
+      const response = await gmdBuffer(audioApi);
+      
+     const sizeMB = response.length / (1024 * 1024);
       if (sizeMB > 16) {
-        await reply("File is large, download might take a while...");
+        await reply("File is large, pricessing might take a while...");
       }
 
       const convertedBuffer = await formatAudio(response);
@@ -281,21 +280,16 @@ gmd({
       const firstVideo = searchResponse.videos[0];
       const videoUrl = firstVideo.url;
 
+      const videoApi = `http://102.212.246.26:5434/api/download/ytmp4?url=${encodeURIComponent(videoUrl)}`;
 
-      const audioApis = [
-        `http://102.212.246.26:5434/api/download/ytmp3?url=${encodeURIComponent(videoUrl)}`
-      ];
+      const response = await gmdBuffer(videoApi);
 
-
-      for (const api of audioApis) {
-        try {
-          const response = await gmdBuffer(api);
-        } catch (e) {
-          console.log(`API ${api} failed: ${e.message}`);
-        }
+      const sizeMB = response.length / (1024 * 1024);
+      if (sizeMB > 16) {
+        await reply("File is large, pricessing might take a while...");
       }
 
-      const convertedBuffer = await formatAudio(response);
+      const convertedBuffer = await formatVideo(response);
 
       const infoMess = {
         image: { url: firstVideo.thumbnail || botPic },
