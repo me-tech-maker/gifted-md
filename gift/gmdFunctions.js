@@ -138,8 +138,8 @@ async function stickerToImage(webpData, options = {}) {
 }
 
 async function withTempFiles(inputBuffer, extension, processFn) {
-  const tempInput = `temp_${Date.now()}.input`;
-  const tempOutput = `temp_${Date.now()}.${extension}`;
+  const tempInput = `gift/temp/temp_${Date.now()}.input`;
+  const tempOutput = `gift/temp/temp_${Date.now()}.${extension}`;
   
   try {
     fs.writeFileSync(tempInput, inputBuffer);
@@ -247,8 +247,8 @@ async function waitForFileToStabilize(filePath, timeout = 500000) {
 }
 
 async function formatAudio(buffer) {
-  const inputPath = `temp_in${Date.now()}.mp3`;
-  const outputPath = `temp_out${Date.now()}.mp3`;
+  const inputPath = `gift/temp/temp_in${Date.now()}.mp3`;
+  const outputPath = `gift/temp/temp_out${Date.now()}.mp3`;
 
   fs.writeFileSync(inputPath, buffer);
 
@@ -261,8 +261,8 @@ async function formatAudio(buffer) {
         try {
           await waitForFileToStabilize(outputPath);
           const fixedBuffer = fs.readFileSync(outputPath);
-          fs.unlinkSync(tempInput);
-          fs.unlinkSync(tempOutput);
+          fs.unlinkSync(inputPath);
+          fs.unlinkSync(outputPath);
           resolve(fixedBuffer);
         } catch (err) {
           reject(err);
@@ -275,8 +275,8 @@ async function formatAudio(buffer) {
 
 
 async function formatVideo(buffer) {
-  const inputPath = `temp_in${Date.now()}.mp4`;
-  const outputPath = `temp_out${Date.now()}.mp4`;
+  const inputPath = `gift/temp/temp_in${Date.now()}.mp4`;
+  const outputPath = `gift/temp/temp_out${Date.now()}.mp4`;
   
   fs.writeFileSync(inputPath, buffer);
 
