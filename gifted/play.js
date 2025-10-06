@@ -1,6 +1,5 @@
 const { gmd } = require("../gift");
 
-
 gmd({
     pattern: "sendimage",
     aliases: ["sendimg", "dlimg", "dlimage"],
@@ -142,6 +141,7 @@ gmd({
       const firstVideo = searchResponse.videos[0];
       const videoUrl = firstVideo.url;
 
+      // Do not rely on this as I might disable it/change port anytime 
       const audioApi = `http://102.212.246.26:5434/api/download/ytmp3?url=${encodeURIComponent(videoUrl)}`;
 
       const response = await gmdBuffer(audioApi);
@@ -280,6 +280,7 @@ gmd({
       const firstVideo = searchResponse.videos[0];
       const videoUrl = firstVideo.url;
 
+        // Do not rely on this as I might disable it/change port anytime
       const videoApi = `http://102.212.246.26:5434/api/download/ytmp4?url=${encodeURIComponent(videoUrl)}`;
 
       const response = await gmdBuffer(videoApi);
