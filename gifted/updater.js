@@ -22,7 +22,7 @@ gmd({
     try {
         await reply("🔍 Checking for New Updates...");
 
-        const { data: commitData } = await axios.get("https://api.github.com/repos/solomongire/new/commits/main");
+        const { data: commitData } = await axios.get("https://api.github.com/repos/mauricegift/gifted-md/commits/main");
         const latestCommitHash = commitData.sha;
 
         const currentHash = await getCommitHash();
