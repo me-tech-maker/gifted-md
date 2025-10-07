@@ -35,6 +35,8 @@ const {
     bufferToStream,
     uploadToPixhost,
     uploadToImgBB,
+    setCommitHash, 
+    getCommitHash,
     gmdBuffer, gmdJson, 
     formatAudio, formatVideo,
     uploadToGithubCdn,
@@ -95,7 +97,7 @@ const {
     AUTO_READ_MESSAGES: autoRead,
     AUTO_BLOCK: autoBlock,
     AUTO_BIO: autoBio } = config;
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 4420;
 const app = express();
 let Gifted;
 
@@ -700,6 +702,8 @@ Gifted.getLidFromJid = async (jid) => {
                             bufferToStream,
                             uploadToPixhost,
                             uploadToImgBB,
+                            setCommitHash, 
+                            getCommitHash,
                             uploadToGithubCdn,
                             uploadToGiftedCdn,
                             uploadToPasteboard,
