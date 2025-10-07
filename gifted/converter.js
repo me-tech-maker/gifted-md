@@ -1,41 +1,122 @@
 const { gmd, toAudio, toVideo, toPtt, stickerToImage, gmdFancy, gmdRandom } = require("../gift");
 const acrcloud = require("acrcloud");
 const fs = require("fs").promises;
+const { exec } = require("child_process");
+const ffmpeg = require('fluent-ffmpeg');
+const ffmpegPath = require('ffmpeg-static');
+ffmpeg.setFfmpegPath(ffmpegPath);
 const { Sticker, createSticker, StickerTypes } = require("wa-sticker-formatter");
 
+function runFFmpeg(input, output, scale = 320, fps = 15, duration = 8) {
+    return new Promise((resolve, reject) => {
+        // 🔥 Convert video → animated webp
+        const cmd = `ffmpeg -i "${input}" -vf "scale=${scale}:-1:force_original_aspect_ratio=decrease,fps=${fps}" -t ${duration} -an -vcodec libwebp -loop 0 -preset default -vsync 0 "${output}" -y`;
+        exec(cmd, (err) => {
+            if (err) reject(err);
+            else resolve(output);
+        });
+    });
+}
+
+async function getVideoDuration(input) {
+    return new Promise((resolve) => {
+        // First try using fluent-ffmpeg
+        ffmpeg.ffprobe(input, (err, metadata) => {
+            if (!err && metadata?.format?.duration) {
+                return resolve(parseFloat(metadata.format.duration));
+            }
+            
+            // Fallback to direct ffprobe command
+            exec(`ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${input}"`, (err, stdout) => {
+                if (err || !stdout) {
+                    // If both methods fail, return default duration (8 seconds)
+                    return resolve(8);
+                }
+                resolve(parseFloat(stdout));
+            });
+        });
+    });
+}
+
+async function gmdSticker(file, options) {
+    let stickerBuffer;
+    let attempts = 0;
+    let scale = 320, fps = 15, quality = options.quality || 75;
+
+    while (attempts < 15) { 
+        const sticker = new Sticker(file, {
+            ...options,
+            quality
+        });
+        stickerBuffer = await sticker.toBuffer();
+
+        if (stickerBuffer.length <= 512 * 1024) break; // ✅ WhatsApp limit
+
+        // 🔥 Too big → reduce quality/fps/scale
+        attempts++;
+        quality = Math.max(40, quality - 15);
+        fps = Math.max(8, fps - 2);
+        scale = Math.max(180, scale - 60);
+    }
+
+    return stickerBuffer;
+}
 
 gmd({
     pattern: "sticker",
     aliases: ["st", "take"],
     category: "converter",
     react: "🔄️",
-    description: "Convert image to sticker.",
+    description: "Convert image/video/sticker to sticker.",
 }, async (from, Gifted, conText) => {
-    const { q, mek, reply, react, config, quoted } = conText;
+    const { q, mek, config, reply, react, quoted } = conText;
 
     try {
         if (!quoted) {
             await react("❌");
-            return reply("Please reply to/quote an image or sticker");
+            return reply("Please reply to/quote an image, video or sticker");
         }
-        
+
         const quotedImg = quoted?.imageMessage || quoted?.message?.imageMessage;
         const quotedSticker = quoted?.stickerMessage || quoted?.message?.stickerMessage;
-        
-        if (!quotedImg && !quotedSticker) {
+        const quotedVideo = quoted?.videoMessage || quoted?.message?.videoMessage;
+
+        if (!quotedImg && !quotedSticker && !quotedVideo) {
             await react("❌");
-            return reply("That quoted message is not an image or sticker");
+            return reply("That quoted message is not an image, video or sticker");
         }
 
         let tempFilePath;
         try {
-            if (quotedImg) {
-                tempFilePath = await Gifted.downloadAndSaveMediaMessage(quotedImg, 'temp_media');
-                const imageData = await fs.readFile(tempFilePath);
-                const imageFile = gmdRandom(".jpg");
-                await fs.writeFile(imageFile, imageData);
-                
-                let sticker = new Sticker(imageFile, {
+            if (quotedImg || quotedVideo) {
+                tempFilePath = await Gifted.downloadAndSaveMediaMessage(
+                    quotedImg || quotedVideo,
+                    "temp_media"
+                );
+
+                let fileExt = quotedImg ? ".jpg" : ".mp4";
+                let mediaFile = gmdRandom(fileExt);
+                const data = await fs.readFile(tempFilePath);
+                await fs.writeFile(mediaFile, data);
+
+                // 🔥 If video → convert to webp
+                if (quotedVideo) {
+                    const compressedFile = gmdRandom(".webp");
+                    let duration = 8; // default duration
+                    
+                    try {
+                        duration = await getVideoDuration(mediaFile);
+                        if (duration > 10) duration = 10; // trim to first 10 seconds
+                    } catch (e) {
+                        console.error("Using default duration due to error:", e);
+                    }
+                    
+                    await runFFmpeg(mediaFile, compressedFile, 320, 15, duration);
+                    await fs.unlink(mediaFile).catch(() => {});
+                    mediaFile = compressedFile;
+                }
+
+                const stickerBuffer = await gmdSticker(mediaFile, {
                     pack: config.PACK_NAME, 
                     author: config.PACK_AUTHOR,
                     type: q.includes("--crop") || q.includes("-c") ? StickerTypes.CROPPED : StickerTypes.FULL,
@@ -44,19 +125,19 @@ gmd({
                     quality: 75,
                     background: "transparent"
                 });
-                
-                const stickerBuffer = await sticker.toBuffer();
-                await fs.unlink(imageFile).catch(console.error);
+
+                await fs.unlink(mediaFile).catch(() => {});
                 await react("✅");
                 return Gifted.sendMessage(from, { sticker: stickerBuffer }, { quoted: mek });
-            } 
-            else if (quotedSticker) {
-                tempFilePath = await Gifted.downloadAndSaveMediaMessage(quotedSticker, 'temp_media');
-                const stickerData = await fs.readFile(tempFilePath); 
+
+            } else if (quotedSticker) {
+                // Sticker → Sticker (recompress if too big)
+                tempFilePath = await Gifted.downloadAndSaveMediaMessage(quotedSticker, "temp_media");
+                const stickerData = await fs.readFile(tempFilePath);
                 const stickerFile = gmdRandom(".webp");
                 await fs.writeFile(stickerFile, stickerData);
-                
-                let newSticker = new Sticker(stickerFile, {
+
+                const newStickerBuffer = await gmdSticker(stickerFile, {
                     pack: config.PACK_NAME, 
                     author: config.PACK_AUTHOR,
                     type: q.includes("--crop") || q.includes("-c") ? StickerTypes.CROPPED : StickerTypes.FULL,
@@ -65,14 +146,13 @@ gmd({
                     quality: 75,
                     background: "transparent"
                 });
-                
-                const newStickerBuffer = await newSticker.toBuffer();
-                await fs.unlink(stickerFile).catch(console.error);
+
+                await fs.unlink(stickerFile).catch(() => {});
                 await react("✅");
                 return Gifted.sendMessage(from, { sticker: newStickerBuffer }, { quoted: mek });
             }
         } finally {
-            if (tempFilePath) await fs.unlink(tempFilePath).catch(console.error);
+            if (tempFilePath) await fs.unlink(tempFilePath).catch(() => {});
         }
     } catch (e) {
         console.error("Error in sticker command:", e);
@@ -282,3 +362,6 @@ gmd({
     }
   }
 );
+
+
+
